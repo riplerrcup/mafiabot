@@ -1,7 +1,7 @@
-English
+English:
 A bot for playing Mafia in Telegram groups, written using aiogram. Supports user economy, roles, in-game items and full game mechanics.
 
-Features
+Features:
 🕵️‍♀️ Classic roles: Mirny, Mafia, Don, Doctor, Commissioner
 
 🌕 Day/night with voting, actions and outcome processing
@@ -14,7 +14,7 @@ Features
 
 🎟️ Subscription and administrator management
 
-Requirements
+Requirements:
   Python 3.11
   aiogram 2.21 library
 
@@ -26,10 +26,10 @@ Launching the bot:
   python bot.py
 ⚠️ Replace API_TOKEN in the code with your bot token from BotFather.
 
-Русский
+Русский:
 Бот для игры в Мафию в Telegram-группах, написанный с использованием aiogram. Поддерживает пользовательскую экономику, роли, внутриигровые предметы и полноценную механику игры.
 
-Возможности
+Возможности:
 🕵️‍♀️ Классические роли: Мирный, Мафия, Дон, Доктор, Комиссар
 
 🌕 День/ночь с голосованием, действиями и обработкой исходов
@@ -42,7 +42,7 @@ Launching the bot:
 
 🎟️ Подписка и управление администраторами
 
-Требования
+Требования:
 Python 3.11 
 библиотека aiogram 2.21
 
