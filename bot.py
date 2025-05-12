@@ -6,31 +6,26 @@ from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
-API_TOKEN = '5099625728:AAGg3nGtrtFez_srnXJQuiUzYALKlKkYFBI'
-BOT_USERNAME = 'riplerrcup_bot'  # Например, MyMafiaBot
+API_TOKEN = ''
+BOT_USERNAME = 'WITHOUT @'  
 
 logging.basicConfig(level=logging.INFO)
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot, storage=MemoryStorage())
 
-# -------------- ПЕРСИСТЕНТНЫЕ ДАННЫЕ --------------
 DATA_FILE = 'data.json'
 
-# Загружаем данные из файла, если он существует
 if os.path.exists(DATA_FILE):
     with open(DATA_FILE, 'r', encoding='utf-8') as f:
         data = json.load(f)
 else:
     data = {}
 
-# Инициализируем глобальные структуры:
-# admin_ids остаются статичными
 admin_ids = {1097277508}
-subscribers = set(data.get('subscribers', []))       # сохраняем как список, потом преобразуем в set
-user_profiles = data.get('user_profiles', {})          # {user_id: {username, balance, points, roses, donation}}
-chat_list = data.get('chat_list', {})                  # {chat_id: {title, link, status, score}}
-# Остальные данные (игры) не сохраняем между запусками
+subscribers = set(data.get('subscribers', []))      
+user_profiles = data.get('user_profiles', {})        
+chat_list = data.get('chat_list', {})             
 active_games = {}
 
 SHOP_ITEMS = {
@@ -41,7 +36,6 @@ bonus_settings = {"villager": 10, "mafia": 10}
 SUBSCRIPTION_PRICE = 100
 
 def save_data():
-    """Сохраняет персистентные данные в JSON-файл."""
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump({
             'user_profiles': user_profiles,
@@ -49,7 +43,6 @@ def save_data():
             'subscribers': list(subscribers)
         }, f, ensure_ascii=False, indent=4)
 
-# -------------- ФУНКЦИИ-ПОМОЩНИКИ --------------
 
 def get_user_profile(user_id, username):
     if str(user_id) not in user_profiles:
@@ -66,28 +59,23 @@ def get_user_profile(user_id, username):
     return user_profiles[str(user_id)]
 
 def update_chat_list(chat: types.Chat):
-    """Обновляет список чатов, если сообщение из группового чата."""
     if str(chat.id) not in chat_list:
         chat_list[str(chat.id)] = {"title": chat.title or "Без названия", "link": None, "status": "не проверен", "score": 0}
         save_data()
 
-# -------------- КЛАССЫ И ГЕЙМПЛЕЙ (ИГРА "МАФИЯ") --------------
 
 class Role:
     def __init__(self, name, description, abilities):
         self.name = name
         self.description = description
-        # abilities – словарь с ключами: kill, save, check, block, boost, spy (и т.д.)
         self.abilities = abilities
 
-# Стандартные роли
 STANDARD_ROLES = {
     'Мирный житель': Role('Мирный житель', 'Нет специальных способностей', {}),
     'Мафия': Role('Мафия', 'Убийство ночью', {'kill': True}),
     'Дон мафии': Role('Дон мафии', 'Управляет мафией, убийство ночью', {'kill': True, 'lead': True}),
     'Доктор': Role('Доктор', 'Спасение игрока ночью', {'save': True}),
     'Комиссар': Role('Комиссар', 'Проверка роли игрока ночью', {'check': True})
-    # Пользователи могут создавать кастомные роли с доп. способностями (block, boost, spy)
 }
 
 ABILITY_DESCRIPTIONS = {
@@ -105,11 +93,9 @@ user_game_map = {}
 class Game:
     def __init__(self, chat_id):
         self.chat_id = chat_id
-        # Игроки: {user_id: {'username': str, 'role': Role, 'alive': bool, 'currency': int}}
         self.players = {}
-        self.phase = 'waiting'  # Фазы: waiting, day, night
-        self.votes = {}         # Голоса дневного раунда: {voter_id: target_id}
-        # Ночные действия: {user_id: {'action': тип, 'target': target_id}}
+        self.phase = 'waiting'  
+        self.votes = {}         
         self.night_actions = {}
         self.started = False
 
@@ -196,7 +182,6 @@ class Game:
             return 'Мафия'
         return None
 
-# -------------- ОБРАБОТЧИКИ КОМАНД --------------
 
 @dp.message_handler(commands=['start'])
 async def cmd_start(message: types.Message):
@@ -219,7 +204,7 @@ async def cmd_start(message: types.Message):
             username = message.from_user.username or message.from_user.first_name
 
             if game.add_player(user_id, username):
-                user_game_map[user_id] = chat_id  # Запоминаем, к какому чату относится игрок
+                user_game_map[user_id] = chat_id 
                 await message.answer(f"Вы успешно присоединились к игре в чате «{chat_id}»!")
             else:
                 await message.answer("Вы уже участвуете в этой игре.")
@@ -252,19 +237,15 @@ async def cmd_add_donation(message: types.Message):
         await message.answer("❗ Сумма должна быть числом.")
         return
 
-    # Пытаемся найти профиль
     target_profile = None
     for uid, profile in user_profiles.items():
         if str(uid) == target_identifier or profile["username"] == target_identifier:
             target_profile = profile
             break
 
-    # Если профиль не найден, можно его создать (если это допустимо)
     if not target_profile:
-        # Если target_identifier выглядит как число, считаем его user_id
         try:
             new_user_id = int(target_identifier)
-            # Создаём профиль с пустым username, если он отсутствует
             target_profile = get_user_profile(new_user_id, f"user{new_user_id}")
             await message.answer("Профиль пользователя не был найден. Создан новый профиль по умолчанию.")
         except ValueError:
@@ -272,7 +253,7 @@ async def cmd_add_donation(message: types.Message):
             return
 
     target_profile["donation"] += amount
-    save_data()  # Сохраняем изменения
+    save_data() 
     await message.answer(
         f"💳 Донатный баланс пользователя {target_profile['username']} пополнен на {amount}.\n"
         f"Новый донатный баланс: {target_profile['donation']}"
@@ -290,7 +271,6 @@ async def cmd_newgame(message: types.Message):
     else:
         game = Game(chat_id)
         active_games[chat_id] = game
-        # Используем абсолютное значение chat_id для ссылки, чтобы избежать проблем с минусом
         join_link = f"https://t.me/{BOT_USERNAME}?start=join_{str(chat_id)}"
         keyboard = InlineKeyboardMarkup()
         button = InlineKeyboardButton(text="Ссылка присоединиться", url=join_link)
@@ -298,7 +278,6 @@ async def cmd_newgame(message: types.Message):
         await message.answer("Новая игра создана! Для участия используйте кнопку ниже:", reply_markup=keyboard)
 
 
-# /join – присоединение к игре. В групповых чатах можно вызвать команду /join, а в личном чате — только через приглашение.
 @dp.message_handler(commands=['join'])
 async def cmd_join(message: types.Message):
     if message.chat.type == "private":
@@ -333,7 +312,6 @@ async def cmd_startgame(message: types.Message):
         await message.answer("Недостаточно игроков для начала игры (минимум 5).")
         return
     game.assign_roles()
-    # Рассылка информации о ролях игрокам с описанием возможностей
     for user_id, data in game.players.items():
         role = data['role']
         message_text = f"Ваша роль: {role.name}\nОписание: {role.description}\n"
@@ -351,7 +329,6 @@ async def cmd_startgame(message: types.Message):
     game.phase = 'day'
     await message.answer("Игра началась! Дневной раунд – обсуждение и голосование с помощью /vote.")
 
-# Остальные игровые команды (/vote, /endvote, /action, /endnight) доступны только в групповых чатах.
 @dp.message_handler(commands=['vote'])
 async def cmd_vote(message: types.Message):
     if message.chat.type == "private":
@@ -435,7 +412,7 @@ async def cmd_action(message: types.Message):
             await message.answer("Вы не присоединились ни к одной игре. Используйте ссылку-приглашение.")
             return
 
-        chat_id = user_game_map[user_id]  # Находим чат игры, к которой присоединился пользователь
+        chat_id = user_game_map[user_id]  
     else:
         chat_id = message.chat.id
 
@@ -448,7 +425,6 @@ async def cmd_action(message: types.Message):
         await message.answer("Ночные действия доступны только ночью.")
         return
 
-    # Получаем аргументы (тип действия и цель)
     args = message.get_args().split()
     if len(args) < 2:
         await message.answer("Используйте формат: /action <kill/save/check/block/boost/spy> <username или user_id>")
@@ -458,7 +434,6 @@ async def cmd_action(message: types.Message):
     target_identifier = args[1]
     target_id = None
 
-    # Ищем цель по username или user_id
     for uid, data in game.players.items():
         if str(uid) == target_identifier or data['username'] == target_identifier:
             target_id = uid
@@ -470,7 +445,6 @@ async def cmd_action(message: types.Message):
 
     role = game.players[user_id]['role']
 
-    # Выполняем действия в зависимости от типа действия и возможностей роли
     if action_type == 'kill' and role.abilities.get('kill'):
         game.night_actions[user_id] = {'action': 'kill', 'target': target_id}
         await message.answer("Действие убийства зарегистрировано.")
@@ -512,13 +486,11 @@ async def cmd_endnight(message: types.Message):
     results = game.process_night()
     text = "Ночная фаза завершена!\n"
 
-    # Обрабатываем убийства и отправляем сообщение жертве
     if results['killed']:
         victim_id = results['killed']
         victim = game.players[victim_id]['username']
         text += f"🔪 Игрок {victim} был убит ночью.\n"
 
-        # Отправляем личное сообщение убитому игроку
         try:
             await bot.send_message(victim_id, "😵 Вы были убиты ночью! Вы больше не участвуете в игре.")
         except Exception as e:
@@ -527,7 +499,6 @@ async def cmd_endnight(message: types.Message):
     else:
         text += "🌙 Никто не был убит ночью.\n"
 
-    # Отправка сообщений игрокам, которых проверил комиссар
     if results['checked']:
         for uid, role_name in results['checked'].items():
             try:
@@ -535,7 +506,6 @@ async def cmd_endnight(message: types.Message):
             except Exception as e:
                 logging.error(f"Ошибка отправки сообщения {uid}: {e}")
 
-    # Сообщение игрокам, которые получили усиление
     if results['boosted']:
         for uid in results['boosted']:
             try:
@@ -543,7 +513,6 @@ async def cmd_endnight(message: types.Message):
             except Exception as e:
                 logging.error(f"Ошибка отправки сообщения {uid}: {e}")
 
-    # Сообщение шпионам о результатах их наблюдений
     if results['spy_info']:
         for spy_id, act in results['spy_info'].items():
             try:
@@ -551,10 +520,8 @@ async def cmd_endnight(message: types.Message):
             except Exception as e:
                 logging.error(f"Ошибка отправки сообщения {spy_id}: {e}")
 
-    # Очистка ночных действий
     game.night_actions = {}
 
-    # Проверяем, есть ли победитель
     winner = game.check_winner()
     if winner:
         text += f"\n🏆 Победила команда: {winner}!\n"
@@ -565,15 +532,14 @@ async def cmd_endnight(message: types.Message):
                 elif winner == 'Мафия' and data['role'].name in ['Мафия', 'Дон мафии']:
                     data['currency'] += bonus_settings["mafia"]
 
-        del active_games[chat_id]  # Завершаем игру
+        del active_games[chat_id]  
     else:
-        game.phase = 'day'  # Начинаем дневной раунд
+        game.phase = 'day'  
         text += "☀️ Дневной раунд начался. Голосуйте с помощью /vote."
 
     await message.answer(text)
 
 
-# Остальные команды (создание/редактирование ролей, профиль, магазин, экономика и т.д.) остаются без изменений.
 @dp.message_handler(commands=['create_role'])
 async def cmd_create_role(message: types.Message):
     user_id = message.from_user.id
@@ -746,7 +712,7 @@ async def cmd_game(message: types.Message):
             await message.answer("Вы не присоединились ни к одной игре. Используйте ссылку-приглашение.")
             return
 
-        chat_id = user_game_map[user_id]  # Определяем чат игры
+        chat_id = user_game_map[user_id]  
     else:
         chat_id = message.chat.id
 
